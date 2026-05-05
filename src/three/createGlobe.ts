@@ -7,7 +7,6 @@ import {
   Color,
   Group,
   MeshBasicMaterial,
-  Vector3,
 } from 'three';
 
 export interface Globe {
@@ -15,7 +14,7 @@ export interface Globe {
   surface: Mesh;
   atmosphere: Mesh;
   radius: number;
-  update: (cameraPosition: Vector3) => void;
+  update: (deltaSeconds: number) => void;
   dispose: () => void;
 }
 
@@ -68,9 +67,9 @@ export function createGlobe(radius = 1): Globe {
   const atmosphere = new Mesh(atmoGeo, atmoMat);
   group.add(atmosphere);
 
-  function update(_cameraPosition: Vector3) {
-    // gentle idle rotation
-    group.rotation.y += 0.0006;
+  function update(deltaSeconds: number) {
+    // 0.036 rad/sec ≈ ~1 full revolution every 175 seconds
+    group.rotation.y += 0.036 * deltaSeconds;
   }
 
   function dispose() {

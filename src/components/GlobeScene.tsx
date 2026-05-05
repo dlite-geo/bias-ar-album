@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import {
+  Clock,
   Raycaster,
   Vector2,
   type Intersection,
@@ -64,14 +65,17 @@ export function GlobeScene() {
     };
     canvas.addEventListener('pointermove', onPointerMove);
 
+    const clock = new Clock();
+    const targets: Object3D[] = nodeMeshes.map((n) => n.mesh);
+
     let raf = 0;
     const tick = () => {
       raf = requestAnimationFrame(tick);
+      const dt = clock.getDelta();
       controlsBundle.update();
-      globe.update(camera.position);
+      globe.update(dt);
 
       raycaster.setFromCamera(pointer, camera);
-      const targets: Object3D[] = nodeMeshes.map((n) => n.mesh);
       const hits: Intersection[] = raycaster.intersectObjects(targets, false);
       outline.selectedObjects = hits.length > 0 ? [hits[0].object] : [];
 
