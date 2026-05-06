@@ -24,7 +24,7 @@ export interface SceneBundle {
 
 export function createScene(canvas: HTMLCanvasElement): SceneBundle {
   const scene = new Scene();
-  scene.background = new Color(0x0a0a0a);
+  scene.background = new Color(0xededed);
 
   const camera = new PerspectiveCamera(45, 1, 0.1, 1000);
   camera.position.set(0, 0, 8);
@@ -53,9 +53,6 @@ export function createScene(canvas: HTMLCanvasElement): SceneBundle {
   }
 
   function dispose() {
-    const gl = renderer.getContext();
-    const loseContextExt = gl.getExtension('WEBGL_lose_context');
-    loseContextExt?.loseContext();
     composer.dispose();
     renderer.dispose();
   }
