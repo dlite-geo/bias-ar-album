@@ -58,30 +58,10 @@ export function SpaceScene() {
     controlsBundle.controls.target.set(0, 0, 0);
     controlsBundle.controls.update();
 
-    // ---- Smooth zoom + trackpad-aware gesture state ----
+    // ---- Smooth zoom state ----
     let targetDistance = camera.position.distanceTo(controlsBundle.controls.target);
     const targetTarget = controlsBundle.controls.target.clone();
     const camDir = new Vector3();
-    const cameraRight = new Vector3();
-    const cameraUp = new Vector3();
-
-    // World-space pan that preserves view direction: shifts camera, target, and targetTarget together.
-    const performPan = (deltaPxX: number, deltaPxY: number) => {
-      const distance = camera.position.distanceTo(controlsBundle.controls.target);
-      const fovRad = (camera.fov * Math.PI) / 180;
-      const worldPerPixel = (2 * distance * Math.tan(fovRad / 2)) / canvas.clientHeight;
-
-      // Camera right/up basis vectors in world space (rows 0 and 1 of the camera matrix).
-      cameraRight.setFromMatrixColumn(camera.matrix, 0);
-      cameraUp.setFromMatrixColumn(camera.matrix, 1);
-
-      const offsetX = cameraRight.multiplyScalar(-deltaPxX * worldPerPixel);
-      const offsetY = cameraUp.multiplyScalar(deltaPxY * worldPerPixel);
-
-      camera.position.add(offsetX).add(offsetY);
-      controlsBundle.controls.target.add(offsetX).add(offsetY);
-      targetTarget.add(offsetX).add(offsetY);
-    };
 
     const performZoom = (deltaY: number, magnitudeScale: number) => {
       const sign = Math.sign(deltaY);
@@ -105,24 +85,15 @@ export function SpaceScene() {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
 
-      // Disambiguate input source:
-      //   - ctrlKey (browser-synthesized for trackpad pinch) → zoom
-      //   - deltaMode !== 0 (line/page units) → mouse wheel → zoom
-      //   - deltaMode === 0 with |deltaY| ≥ 50 → still likely mouse wheel → zoom
-      //   - otherwise (small pixel deltas, no ctrl) → trackpad two-finger scroll → pan
+      // All wheel events zoom. Pan is via mouse-drag.
+      // Magnitude divisor tuned per input source so each feels natural:
+      //   - Pinch fires many small events → small divisor for gentle response
+      //   - Mouse wheel fires few large events → large divisor
+      //   - Trackpad two-finger scroll is intermediate
       const isPinch = e.ctrlKey;
       const isMouseWheel = !isPinch && (e.deltaMode !== 0 || Math.abs(e.deltaY) >= 50);
-      const isTrackpadScroll = !isPinch && !isMouseWheel;
-
-      if (isTrackpadScroll) {
-        performPan(e.deltaX, e.deltaY);
-      } else if (isPinch) {
-        // Pinch fires many small deltas — use a smaller divisor so each event has gentle effect.
-        performZoom(e.deltaY, 30);
-      } else {
-        // Mouse wheel — punchy.
-        performZoom(e.deltaY, 100);
-      }
+      const divisor = isPinch ? 30 : isMouseWheel ? 100 : 60;
+      performZoom(e.deltaY, divisor);
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
 
