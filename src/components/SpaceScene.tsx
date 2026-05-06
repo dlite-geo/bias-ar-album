@@ -82,14 +82,18 @@ export function SpaceScene() {
       targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, targetDistance * factor));
 
       // Zoom-to-cursor: pull the orbit target toward the world point under the cursor (zoom-in only).
-      camera.getWorldDirection(camDir);
-      const origin = new Vector3().setFromMatrixPosition(camera.matrixWorld);
-      const cursorRay = new Vector3(pointer.x, pointer.y, 0.5).unproject(camera).sub(origin).normalize();
-      const planeDistance = controlsBundle.controls.target.clone().sub(origin).dot(camDir) / cursorRay.dot(camDir);
-      if (Number.isFinite(planeDistance) && planeDistance > 0) {
-        const focal = origin.clone().add(cursorRay.multiplyScalar(planeDistance));
-        const pull = sign < 0 ? 0.18 : 0.0;
-        targetTarget.lerp(focal, pull);
+      // The pull is proportional to the per-event zoom magnitude so it stays smooth regardless of
+      // event rate (60Hz trackpad scroll vs ~10Hz mouse wheel) and capped at 0.25 per event.
+      if (sign < 0) {
+        camera.getWorldDirection(camDir);
+        const origin = new Vector3().setFromMatrixPosition(camera.matrixWorld);
+        const cursorRay = new Vector3(pointer.x, pointer.y, 0.5).unproject(camera).sub(origin).normalize();
+        const planeDistance = controlsBundle.controls.target.clone().sub(origin).dot(camDir) / cursorRay.dot(camDir);
+        if (Number.isFinite(planeDistance) && planeDistance > 0) {
+          const focal = origin.clone().add(cursorRay.multiplyScalar(planeDistance));
+          const pull = Math.min(magnitude * 0.15, 0.25);
+          targetTarget.lerp(focal, pull);
+        }
       }
     };
 
