@@ -10,7 +10,7 @@ export function ProcessingScreen() {
       <div
         style={{
           fontSize: 'var(--font-size-xl)',
-          color: 'var(--color-grey-100)',
+          color: 'var(--text-primary)',
           letterSpacing: '0.02em',
         }}
       >
@@ -20,7 +20,7 @@ export function ProcessingScreen() {
         style={{
           width: 320,
           height: 4,
-          background: 'rgba(255, 255, 255, 0.08)',
+          background: 'var(--border-subtle)',
           borderRadius: 2,
           overflow: 'hidden',
         }}
@@ -37,7 +37,7 @@ export function ProcessingScreen() {
       <div
         style={{
           fontSize: 'var(--font-size-md)',
-          color: 'var(--color-grey-400)',
+          color: 'var(--text-tertiary)',
           fontVariantNumeric: 'tabular-nums',
         }}
       >

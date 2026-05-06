@@ -19,11 +19,11 @@ export function FrostPanel({ children, blur = 'normal', className, style }: Fros
     <div
       className={className}
       style={{
-        background: 'var(--frost-tint)',
+        background: 'var(--surface-glass)',
         backdropFilter: filter,
         WebkitBackdropFilter: filter,
         borderRadius: 'var(--radius-panel)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
+        border: '1px solid var(--border-subtle)',
         ...style,
       }}
     >

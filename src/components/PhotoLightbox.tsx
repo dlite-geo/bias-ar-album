@@ -25,7 +25,7 @@ export function PhotoLightbox() {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.85)',
+        background: 'rgba(237, 237, 237, 0.85)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         zIndex: 100,
@@ -45,7 +45,7 @@ export function PhotoLightbox() {
           maxHeight: '100%',
           objectFit: 'contain',
           borderRadius: 8,
-          boxShadow: '0 30px 80px rgba(0, 0, 0, 0.5)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.18)',
           cursor: 'default',
         }}
       />

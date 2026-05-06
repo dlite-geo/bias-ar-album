@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, DragEvent } from 'react';
 import { FrostPanel } from './ui/FrostPanel';
 import { useViewStore } from '../store/viewStore';
 import { usePhotoStore } from '../store/photoStore';
@@ -39,7 +39,7 @@ export function LandingScreen() {
   );
 
   const onDrop = useCallback(
-    (e: React.DragEvent) => {
+    (e: DragEvent<HTMLLabelElement>) => {
       e.preventDefault();
       setDragOver(false);
       const items = e.dataTransfer.files;
@@ -72,7 +72,7 @@ export function LandingScreen() {
         <p
           style={{
             fontSize: 'var(--font-size-lg)',
-            color: 'var(--color-grey-300)',
+            color: 'var(--text-secondary)',
             maxWidth: 520,
           }}
         >
@@ -86,7 +86,7 @@ export function LandingScreen() {
           padding: '48px 32px',
           textAlign: 'center',
           borderStyle: 'dashed',
-          borderColor: dragOver ? 'var(--color-accent)' : 'rgba(255, 255, 255, 0.18)',
+          borderColor: dragOver ? 'var(--color-accent)' : 'var(--border-medium)',
           transition: `border-color var(--duration-color) var(--ease-translate)`,
         }}
       >
@@ -109,7 +109,7 @@ export function LandingScreen() {
           <div
             style={{
               fontSize: 'var(--font-size-xl)',
-              color: 'var(--color-grey-100)',
+              color: 'var(--text-primary)',
               marginBottom: 8,
             }}
           >
@@ -118,7 +118,7 @@ export function LandingScreen() {
           <div
             style={{
               fontSize: 'var(--font-size-md)',
-              color: 'var(--color-grey-400)',
+              color: 'var(--text-tertiary)',
               lineHeight: 1.5,
             }}
           >

@@ -29,7 +29,7 @@ export function SpaceHud() {
           style={{
             background: 'transparent',
             border: 'none',
-            color: 'var(--color-grey-100)',
+            color: 'var(--text-primary)',
             fontSize: 'var(--font-size-md)',
             letterSpacing: '0.04em',
             textTransform: 'uppercase',
@@ -42,7 +42,7 @@ export function SpaceHud() {
         <span
           style={{
             fontSize: 'var(--font-size-md)',
-            color: 'var(--color-grey-300)',
+            color: 'var(--text-secondary)',
             fontVariantNumeric: 'tabular-nums',
           }}
         >
