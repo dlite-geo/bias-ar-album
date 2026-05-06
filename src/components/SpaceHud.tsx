@@ -4,6 +4,7 @@ import { usePhotoStore } from '../store/photoStore';
 
 export function SpaceHud() {
   const setView = useViewStore((s) => s.setView);
+  const triggerReset = useViewStore((s) => s.triggerReset);
   const photos = usePhotoStore((s) => s.photos);
   const clear = usePhotoStore((s) => s.clear);
 
@@ -36,6 +37,21 @@ export function SpaceHud() {
           }}
         >
           ← New space
+        </button>
+      </FrostPanel>
+      <FrostPanel style={{ padding: '8px 14px' }}>
+        <button
+          onClick={triggerReset}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text-primary)',
+            fontSize: 'var(--font-size-md)',
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+          }}
+        >
+          ⊙ Reset view
         </button>
       </FrostPanel>
       <FrostPanel style={{ padding: '8px 14px' }}>

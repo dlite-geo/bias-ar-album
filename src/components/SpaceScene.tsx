@@ -12,6 +12,7 @@ import { createPhotoCard, type PhotoCard } from '../three/createPhotoCard';
 import { setupControls } from '../three/orbitControlsFactory';
 import { computeLayout } from '../lib/computeLayout';
 import { usePhotoStore } from '../store/photoStore';
+import { useViewStore } from '../store/viewStore';
 
 const ZOOM_STEP = 0.92;          // each scroll tick multiplies distance by this (or its inverse)
 const ZOOM_LERP = 0.18;          // smoothing factor — closer to 1 = snappier, closer to 0 = lazier
@@ -62,6 +63,16 @@ export function SpaceScene() {
     let targetDistance = camera.position.distanceTo(controlsBundle.controls.target);
     const targetTarget = controlsBundle.controls.target.clone();
     const camDir = new Vector3();
+
+    // Capture the initial framing so the Reset button can snap back to it.
+    const initialDistance = targetDistance;
+    const initialTarget = targetTarget.clone();
+    const unsubReset = useViewStore.subscribe((state, prev) => {
+      if (state.resetCounter !== prev.resetCounter) {
+        targetDistance = initialDistance;
+        targetTarget.copy(initialTarget);
+      }
+    });
 
     const performZoom = (deltaY: number, magnitudeScale: number) => {
       const sign = Math.sign(deltaY);
@@ -176,6 +187,7 @@ export function SpaceScene() {
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('wheel', onWheel);
+      unsubReset();
       controlsBundle.dispose();
       cards.forEach((c) => c.dispose());
       bundle.dispose();
