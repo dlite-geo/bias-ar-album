@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type View = 'landing' | 'processing' | 'space' | 'spaces-list' | 'reattach';
+export type View = 'landing' | 'processing' | 'space' | 'spaces-list' | 'loading-space';
 
 interface ViewState {
   view: View;
