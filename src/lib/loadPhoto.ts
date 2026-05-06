@@ -9,7 +9,7 @@ export async function loadPhoto(file: File): Promise<Photo> {
 
   const blobUrl = URL.createObjectURL(file);
 
-  // Get original dimensions via a temporary ImageBitmap, then make a downscaled copy for WebGL.
+  // Get original dimensions, then make a downscaled copy.
   const original = await createImageBitmap(file);
   const aspectRatio = original.width / original.height;
 
@@ -32,11 +32,21 @@ export async function loadPhoto(file: File): Promise<Photo> {
   });
   original.close?.();
 
+  // Draw the bitmap to a 2D canvas. WebGL handles canvas uploads consistently
+  // with `flipY = true` (default), unlike ImageBitmap which may be ignored on some browsers.
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get 2D context');
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close?.();
+
   return {
     id: `${file.name}-${file.size}-${file.lastModified}`,
     name: file.name,
     blobUrl,
-    bitmap,
+    canvas,
     aspectRatio,
   };
 }

@@ -14,10 +14,8 @@ export const usePhotoStore = create<PhotoState>((set, get) => ({
   selectedId: null,
   setPhotos: (photos) => set({ photos }),
   clear: () => {
-    // Revoke ObjectURLs and close bitmaps to release memory
     for (const p of get().photos) {
       URL.revokeObjectURL(p.blobUrl);
-      p.bitmap.close?.();
     }
     set({ photos: [], selectedId: null });
   },

@@ -27,8 +27,8 @@ export function computeLayout(
   if (count <= 0) return [];
 
   const spread = options.spread ?? Math.max(2.5, Math.cbrt(count) * 1.4);
-  const scaleMin = options.scaleMin ?? 0.7;
-  const scaleMax = options.scaleMax ?? 1.4;
+  const scaleMin = options.scaleMin ?? 0.5;
+  const scaleMax = options.scaleMax ?? 2.0;
   const zJitter = options.zJitter ?? 0.05;
 
   const slots: PhotoSlot[] = [];
