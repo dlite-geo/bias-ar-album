@@ -58,31 +58,70 @@ export function SpaceScene() {
     controlsBundle.controls.target.set(0, 0, 0);
     controlsBundle.controls.update();
 
-    // ---- Smooth zoom state ----
+    // ---- Smooth zoom + trackpad-aware gesture state ----
     let targetDistance = camera.position.distanceTo(controlsBundle.controls.target);
     const targetTarget = controlsBundle.controls.target.clone();
     const camDir = new Vector3();
+    const cameraRight = new Vector3();
+    const cameraUp = new Vector3();
 
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const sign = Math.sign(e.deltaY);
+    // World-space pan that preserves view direction: shifts camera, target, and targetTarget together.
+    const performPan = (deltaPxX: number, deltaPxY: number) => {
+      const distance = camera.position.distanceTo(controlsBundle.controls.target);
+      const fovRad = (camera.fov * Math.PI) / 180;
+      const worldPerPixel = (2 * distance * Math.tan(fovRad / 2)) / canvas.clientHeight;
+
+      // Camera right/up basis vectors in world space (rows 0 and 1 of the camera matrix).
+      cameraRight.setFromMatrixColumn(camera.matrix, 0);
+      cameraUp.setFromMatrixColumn(camera.matrix, 1);
+
+      const offsetX = cameraRight.multiplyScalar(-deltaPxX * worldPerPixel);
+      const offsetY = cameraUp.multiplyScalar(deltaPxY * worldPerPixel);
+
+      camera.position.add(offsetX).add(offsetY);
+      controlsBundle.controls.target.add(offsetX).add(offsetY);
+      targetTarget.add(offsetX).add(offsetY);
+    };
+
+    const performZoom = (deltaY: number, magnitudeScale: number) => {
+      const sign = Math.sign(deltaY);
       if (sign === 0) return;
-      // Scale based on |deltaY| so trackpad continuous scroll doesn't over-accumulate
-      const magnitude = Math.min(Math.abs(e.deltaY) / 100, 1.5);
+      const magnitude = Math.min(Math.abs(deltaY) / magnitudeScale, 1.5);
       const factor = sign > 0 ? 1 / Math.pow(ZOOM_STEP, magnitude) : Math.pow(ZOOM_STEP, magnitude);
       targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, targetDistance * factor));
 
-      // Zoom-to-cursor: shift the orbit target slightly toward the world point under the cursor.
-      // We project the cursor onto the plane through the current target perpendicular to the view direction.
+      // Zoom-to-cursor: pull the orbit target toward the world point under the cursor (zoom-in only).
       camera.getWorldDirection(camDir);
       const origin = new Vector3().setFromMatrixPosition(camera.matrixWorld);
       const cursorRay = new Vector3(pointer.x, pointer.y, 0.5).unproject(camera).sub(origin).normalize();
       const planeDistance = controlsBundle.controls.target.clone().sub(origin).dot(camDir) / cursorRay.dot(camDir);
       if (Number.isFinite(planeDistance) && planeDistance > 0) {
         const focal = origin.clone().add(cursorRay.multiplyScalar(planeDistance));
-        // Stronger pull on zoom-in, lighter on zoom-out
         const pull = sign < 0 ? 0.18 : 0.0;
         targetTarget.lerp(focal, pull);
+      }
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+
+      // Disambiguate input source:
+      //   - ctrlKey (browser-synthesized for trackpad pinch) → zoom
+      //   - deltaMode !== 0 (line/page units) → mouse wheel → zoom
+      //   - deltaMode === 0 with |deltaY| ≥ 50 → still likely mouse wheel → zoom
+      //   - otherwise (small pixel deltas, no ctrl) → trackpad two-finger scroll → pan
+      const isPinch = e.ctrlKey;
+      const isMouseWheel = !isPinch && (e.deltaMode !== 0 || Math.abs(e.deltaY) >= 50);
+      const isTrackpadScroll = !isPinch && !isMouseWheel;
+
+      if (isTrackpadScroll) {
+        performPan(e.deltaX, e.deltaY);
+      } else if (isPinch) {
+        // Pinch fires many small deltas — use a smaller divisor so each event has gentle effect.
+        performZoom(e.deltaY, 30);
+      } else {
+        // Mouse wheel — punchy.
+        performZoom(e.deltaY, 100);
       }
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
