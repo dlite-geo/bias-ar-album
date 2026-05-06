@@ -37,7 +37,10 @@ export function SpaceScene() {
 
     const cards: PhotoCard[] = [];
     if (photos.length > 0) {
-      const slots = computeLayout(photos.length);
+      const layoutOverride = usePhotoStore.getState().layout;
+      const slots = layoutOverride && layoutOverride.length === photos.length
+        ? layoutOverride
+        : computeLayout(photos.length);
       for (let i = 0; i < photos.length; i++) {
         const slot = slots[i];
         const card = createPhotoCard(photos[i], slot.scale);

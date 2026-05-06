@@ -1,15 +1,13 @@
 import type { Photo } from '../types/photo';
+import { photoContentHash } from './photoHash';
 
 const MAX_TEXTURE_EDGE = 512;
 
-export async function loadPhoto(file: File): Promise<Photo> {
+async function decodeAndCanvas(file: File): Promise<{ canvas: HTMLCanvasElement; aspectRatio: number }> {
   if (!file.type.startsWith('image/')) {
     throw new Error(`Not an image: ${file.name} (type=${file.type})`);
   }
 
-  const blobUrl = URL.createObjectURL(file);
-
-  // Get original dimensions, then make a downscaled copy.
   const original = await createImageBitmap(file);
   const aspectRatio = original.width / original.height;
 
@@ -32,8 +30,6 @@ export async function loadPhoto(file: File): Promise<Photo> {
   });
   original.close?.();
 
-  // Draw the bitmap to a 2D canvas. WebGL handles canvas uploads consistently
-  // with `flipY = true` (default), unlike ImageBitmap which may be ignored on some browsers.
   const canvas = document.createElement('canvas');
   canvas.width = targetW;
   canvas.height = targetH;
@@ -42,11 +38,35 @@ export async function loadPhoto(file: File): Promise<Photo> {
   ctx.drawImage(bitmap, 0, 0);
   bitmap.close?.();
 
+  return { canvas, aspectRatio };
+}
+
+export async function loadPhoto(file: File): Promise<Photo> {
+  const { canvas, aspectRatio } = await decodeAndCanvas(file);
+  const blobUrl = URL.createObjectURL(file);
   return {
     id: `${file.name}-${file.size}-${file.lastModified}`,
     name: file.name,
     blobUrl,
     canvas,
     aspectRatio,
+  };
+}
+
+export async function loadPhotoWithHash(file: File): Promise<{ photo: Photo; contentHash: string }> {
+  const [{ canvas, aspectRatio }, contentHash] = await Promise.all([
+    decodeAndCanvas(file),
+    photoContentHash(file),
+  ]);
+  const blobUrl = URL.createObjectURL(file);
+  return {
+    photo: {
+      id: `${file.name}-${file.size}-${file.lastModified}`,
+      name: file.name,
+      blobUrl,
+      canvas,
+      aspectRatio,
+    },
+    contentHash,
   };
 }
