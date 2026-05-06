@@ -91,7 +91,7 @@ export function SpaceScene() {
         const planeDistance = controlsBundle.controls.target.clone().sub(origin).dot(camDir) / cursorRay.dot(camDir);
         if (Number.isFinite(planeDistance) && planeDistance > 0) {
           const focal = origin.clone().add(cursorRay.multiplyScalar(planeDistance));
-          const pull = Math.min(magnitude * 0.15, 0.25);
+          const pull = Math.min(magnitude * 0.5, 0.3);
           targetTarget.lerp(focal, pull);
         }
       }
