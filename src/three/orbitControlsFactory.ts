@@ -12,18 +12,18 @@ export function setupControls(camera: Camera, dom: HTMLElement): ControlsBundle 
   const controls = new OrbitControls(camera, dom);
 
   controls.enableDamping = true;
-  controls.dampingFactor = 0.15;
+  controls.dampingFactor = 0.18;
 
   controls.enableRotate = false; // SOOT-style: drag pans, never rotates
   controls.enablePan = true;
   controls.enableZoom = true;
   controls.zoomToCursor = true;
-  controls.zoomSpeed = 4.0;
+  controls.zoomSpeed = 6.0;
   controls.panSpeed = 1.0;
   controls.screenSpacePanning = true;
 
-  controls.minDistance = 0.5;
-  controls.maxDistance = 200;
+  controls.minDistance = 0.01;
+  controls.maxDistance = 5000;
 
   // Drag with the primary mouse button = pan; single-finger touch = pan
   controls.mouseButtons = {

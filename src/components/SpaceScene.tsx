@@ -43,7 +43,7 @@ export function SpaceScene() {
     // Camera: face the scatter from a generous distance so perspective is gentle
     if (cards.length > 0) {
       const spread = Math.max(2.5, Math.cbrt(photos.length) * 1.4);
-      const distance = Math.max(8, spread * 4.5);
+      const distance = Math.max(8, spread * 5.5);
       camera.position.set(0, 0, distance);
       camera.lookAt(0, 0, 0);
     }

@@ -11,12 +11,9 @@ describe('computeLayout', () => {
     expect(result).toHaveLength(7);
   });
 
-  it('every slot has a position and a scale', () => {
+  it('every slot has a finite position and a scale', () => {
     const result = computeLayout(5);
     for (const s of result) {
-      expect(typeof s.position.x).toBe('number');
-      expect(typeof s.position.y).toBe('number');
-      expect(typeof s.position.z).toBe('number');
       expect(Number.isFinite(s.position.x)).toBe(true);
       expect(Number.isFinite(s.position.y)).toBe(true);
       expect(Number.isFinite(s.position.z)).toBe(true);
@@ -32,20 +29,29 @@ describe('computeLayout', () => {
     }
   });
 
-  it('z values stay within ± zJitter', () => {
-    const result = computeLayout(200, { zJitter: 0.1 });
-    for (const s of result) {
-      expect(Math.abs(s.position.z)).toBeLessThanOrEqual(0.1 + 1e-9);
-    }
-  });
-
-  it('produces a roughly centered scatter (mean near 0 for x and y)', () => {
-    // Large sample → mean of a centered Gaussian should be ~0
-    const result = computeLayout(2000, { spread: 1 });
+  it('produces a roughly centered scatter (mean near 0 for x, y, z)', () => {
+    const result = computeLayout(2000, { spread: 1, depthRatio: 0.5 });
     const meanX = result.reduce((acc, s) => acc + s.position.x, 0) / result.length;
     const meanY = result.reduce((acc, s) => acc + s.position.y, 0) / result.length;
+    const meanZ = result.reduce((acc, s) => acc + s.position.z, 0) / result.length;
     expect(Math.abs(meanX)).toBeLessThan(0.15);
     expect(Math.abs(meanY)).toBeLessThan(0.15);
+    expect(Math.abs(meanZ)).toBeLessThan(0.15);
+  });
+
+  it('depthRatio scales the z stddev relative to xy', () => {
+    // With depthRatio = 0.5 and spread = 2, expected stddev: x/y ≈ 2, z ≈ 1.
+    const result = computeLayout(4000, { spread: 2, depthRatio: 0.5 });
+    const stddev = (xs: number[]) => {
+      const mean = xs.reduce((a, x) => a + x, 0) / xs.length;
+      return Math.sqrt(xs.reduce((a, x) => a + (x - mean) ** 2, 0) / xs.length);
+    };
+    const sx = stddev(result.map((s) => s.position.x));
+    const sz = stddev(result.map((s) => s.position.z));
+    expect(sx).toBeGreaterThan(1.7);
+    expect(sx).toBeLessThan(2.3);
+    expect(sz).toBeGreaterThan(0.85);
+    expect(sz).toBeLessThan(1.15);
   });
 
   it('is deterministic with a seeded rng', () => {
