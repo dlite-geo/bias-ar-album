@@ -6,7 +6,7 @@ import { SpaceScene } from './components/SpaceScene';
 import { SpaceHud } from './components/SpaceHud';
 import { PhotoLightbox } from './components/PhotoLightbox';
 import { SpacesList } from './components/SpacesList';
-import { ReattachScreen } from './components/ReattachScreen';
+import { LoadingSpaceScreen } from './components/LoadingSpaceScreen';
 import { useViewStore } from './store/viewStore';
 
 export default function App() {
@@ -19,7 +19,7 @@ export default function App() {
         {view === 'landing' && <LandingScreen />}
         {view === 'processing' && <ProcessingScreen />}
         {view === 'spaces-list' && <SpacesList />}
-        {view === 'reattach' && <ReattachScreen />}
+        {view === 'loading-space' && <LoadingSpaceScreen />}
         {view === 'space' && (
           <>
             <SpaceScene />

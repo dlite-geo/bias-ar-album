@@ -22,11 +22,13 @@ export function LandingScreen() {
       setView('processing');
 
       const photos: Awaited<ReturnType<typeof loadPhotoWithHash>>['photo'][] = [];
+      const accepted: File[] = [];
       const hashes: string[] = [];
       for (let i = 0; i < jpgs.length; i++) {
         try {
           const { photo, contentHash } = await loadPhotoWithHash(jpgs[i]);
           photos.push(photo);
+          accepted.push(jpgs[i]);
           hashes.push(contentHash);
         } catch (err) {
           console.warn(`Skipping ${jpgs[i].name}:`, err);
@@ -34,7 +36,7 @@ export function LandingScreen() {
         setProgress(i + 1, jpgs.length);
       }
 
-      setPhotos(photos, hashes);
+      setPhotos(photos, accepted, hashes);
       setView('space');
     },
     [setView, setProgress, setPhotos],

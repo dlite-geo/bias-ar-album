@@ -1,30 +1,46 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { FrostPanel } from './ui/FrostPanel';
 import { useSpaceStore } from '../store/spaceStore';
 import { useViewStore } from '../store/viewStore';
 import { useAuthStore } from '../store/authStore';
+import { usePhotoStore } from '../store/photoStore';
+import type { SavedSpace } from '../types/space';
 
 export function SpacesList() {
   const list = useSpaceStore((s) => s.list);
   const loading = useSpaceStore((s) => s.loadingList);
   const fetchList = useSpaceStore((s) => s.fetchList);
-  const setPendingSpace = useSpaceStore((s) => s.setPendingSpace);
+  const loadSpace = useSpaceStore((s) => s.loadSpace);
   const deleteSpace = useSpaceStore((s) => s.deleteSpace);
   const setView = useViewStore((s) => s.setView);
+  const setPhotos = usePhotoStore((s) => s.setPhotos);
+  const setLayout = usePhotoStore((s) => s.setLayout);
   const signOut = useAuthStore((s) => s.signOut);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchList();
   }, [fetchList]);
 
-  const onOpen = (space: (typeof list)[number]) => {
-    setPendingSpace(space);
-    setView('reattach');
+  const onOpen = async (space: SavedSpace) => {
+    setError(null);
+    setView('loading-space');
+    const { error: loadErr, photos, layout } = await loadSpace(space);
+    if (loadErr || !photos || !layout) {
+      setError(loadErr ?? 'Failed to load space.');
+      setView('spaces-list');
+      return;
+    }
+    // Loaded-from-cloud spaces are read-only at the layout level: empty hashes hide the Save button.
+    setPhotos(photos, [], photos.map(() => ''));
+    setLayout(layout);
+    setView('space');
   };
 
   const onDelete = async (id: string) => {
-    if (!confirm('Delete this space?')) return;
-    await deleteSpace(id);
+    if (!confirm('Delete this space? Its photos will also be removed from cloud storage.')) return;
+    const { error: delErr } = await deleteSpace(id);
+    if (delErr) setError(delErr);
     fetchList();
   };
 
@@ -97,6 +113,19 @@ export function SpacesList() {
             </div>
           ))}
       </FrostPanel>
+
+      {error && (
+        <div
+          style={{
+            color: 'var(--color-system-red)',
+            fontSize: 'var(--font-size-md)',
+            textAlign: 'center',
+            maxWidth: 520,
+          }}
+        >
+          {error}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 16 }}>
         <button
