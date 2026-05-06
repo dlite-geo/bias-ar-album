@@ -7,18 +7,10 @@ import {
   type Intersection,
 } from 'three';
 import { createScene } from '../three/createScene';
-import { createStarField } from '../three/createStarField';
 import { createPhotoCard, type PhotoCard } from '../three/createPhotoCard';
 import { setupControls } from '../three/orbitControlsFactory';
 import { computeLayout } from '../lib/computeLayout';
 import { usePhotoStore } from '../store/photoStore';
-
-function pickGridDims(count: number): { cols: number; rows: number } {
-  const perLayerTarget = Math.max(6, Math.ceil(Math.sqrt(count) * 1.2));
-  const cols = Math.max(2, Math.ceil(Math.sqrt(perLayerTarget)));
-  const rows = Math.max(2, Math.ceil(perLayerTarget / cols));
-  return { cols, rows };
-}
 
 export function SpaceScene() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,37 +24,33 @@ export function SpaceScene() {
     const bundle = createScene(canvas);
     const { scene, camera, composer, outline, resize } = bundle;
 
-    const stars = createStarField(2500, 80);
-    scene.add(stars.points);
-
     const cardsRoot = new Group();
     scene.add(cardsRoot);
 
     const cards: PhotoCard[] = [];
     if (photos.length > 0) {
-      const { cols, rows } = pickGridDims(photos.length);
-      const slots = computeLayout(photos.length, {
-        cols,
-        rows,
-        spacing: 1.6,
-        jitter: 0.35,
-      });
+      const slots = computeLayout(photos.length);
       for (let i = 0; i < photos.length; i++) {
-        const card = createPhotoCard(photos[i]);
-        const { x, y, z } = slots[i].position;
+        const slot = slots[i];
+        const card = createPhotoCard(photos[i], slot.scale);
+        const { x, y, z } = slot.position;
         card.group.position.set(x, y, z);
         cardsRoot.add(card.group);
         cards.push(card);
       }
     }
 
+    // Camera: face the scatter from a generous distance so perspective is gentle
     if (cards.length > 0) {
-      const span = Math.max(2, Math.cbrt(cards.length) * 1.6);
-      camera.position.set(0, 0, span * 2.5);
+      const spread = Math.max(2.5, Math.cbrt(photos.length) * 1.4);
+      const distance = Math.max(8, spread * 4.5);
+      camera.position.set(0, 0, distance);
       camera.lookAt(0, 0, 0);
     }
 
     const controlsBundle = setupControls(camera, canvas);
+    controlsBundle.controls.target.set(0, 0, 0);
+    controlsBundle.controls.update();
 
     const targets: Object3D[] = cards.map((c) => c.mesh);
 
@@ -81,8 +69,17 @@ export function SpaceScene() {
     canvas.addEventListener('pointermove', onPointerMove);
     canvas.addEventListener('pointerleave', onPointerLeave);
 
-    const onClick = () => {
-      if (!pointerInCanvas) return;
+    // Distinguish a true click from a pan-drag: only register click if pointer didn't move much.
+    let downX = 0;
+    let downY = 0;
+    const onPointerDown = (e: PointerEvent) => {
+      downX = e.clientX;
+      downY = e.clientY;
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      const dx = e.clientX - downX;
+      const dy = e.clientY - downY;
+      if (dx * dx + dy * dy > 16) return; // ignore drags
       raycaster.setFromCamera(pointer, camera);
       const hits = raycaster.intersectObjects(targets, false);
       if (hits.length > 0) {
@@ -90,7 +87,8 @@ export function SpaceScene() {
         if (id) setSelected(id);
       }
     };
-    canvas.addEventListener('click', onClick);
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointerup', onPointerUp);
 
     const onResize = () => resize(window.innerWidth, window.innerHeight);
     onResize();
@@ -101,6 +99,7 @@ export function SpaceScene() {
       raf = requestAnimationFrame(tick);
       controlsBundle.update();
 
+      // Billboard each card to face the camera
       for (const c of cards) {
         c.group.quaternion.copy(camera.quaternion);
       }
@@ -122,10 +121,10 @@ export function SpaceScene() {
       window.removeEventListener('resize', onResize);
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerleave', onPointerLeave);
-      canvas.removeEventListener('click', onClick);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointerup', onPointerUp);
       controlsBundle.dispose();
       cards.forEach((c) => c.dispose());
-      stars.dispose();
       bundle.dispose();
     };
   }, [photos, setSelected]);

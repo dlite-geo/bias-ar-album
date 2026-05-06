@@ -16,11 +16,11 @@ export interface PhotoCard {
   dispose: () => void;
 }
 
-const CARD_BASE_HEIGHT = 1.0;
+const CARD_BASE_HEIGHT = 0.8;
 
-export function createPhotoCard(photo: Photo): PhotoCard {
-  const width = CARD_BASE_HEIGHT * photo.aspectRatio;
-  const height = CARD_BASE_HEIGHT;
+export function createPhotoCard(photo: Photo, scale = 1.0): PhotoCard {
+  const height = CARD_BASE_HEIGHT * scale;
+  const width = height * photo.aspectRatio;
 
   const geom = new PlaneGeometry(width, height);
 
@@ -28,6 +28,7 @@ export function createPhotoCard(photo: Photo): PhotoCard {
   texture.colorSpace = SRGBColorSpace;
   texture.minFilter = LinearFilter;
   texture.magFilter = LinearFilter;
+  texture.flipY = false; // ImageBitmap is already in WebGL-correct orientation
   texture.needsUpdate = true;
 
   const mat = new MeshBasicMaterial({ map: texture, toneMapped: false });

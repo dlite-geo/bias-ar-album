@@ -1,4 +1,5 @@
 import type { Camera } from 'three';
+import { MOUSE, TOUCH } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 export interface ControlsBundle {
@@ -11,18 +12,29 @@ export function setupControls(camera: Camera, dom: HTMLElement): ControlsBundle 
   const controls = new OrbitControls(camera, dom);
 
   controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
+  controls.dampingFactor = 0.1;
 
-  controls.rotateSpeed = 0.6;
-  controls.zoomSpeed = 0.8;
-  controls.zoomToCursor = true;        // scroll zooms toward the cursor position
-  controls.screenSpacePanning = true;  // right-drag pans on the camera-aligned plane
+  controls.enableRotate = false; // SOOT-style: drag pans, never rotates
+  controls.enablePan = true;
+  controls.enableZoom = true;
+  controls.zoomToCursor = true;
+  controls.zoomSpeed = 1.0;
+  controls.panSpeed = 1.0;
+  controls.screenSpacePanning = true;
 
   controls.minDistance = 0.5;
-  controls.maxDistance = 60;
+  controls.maxDistance = 200;
 
-  controls.enablePan = true;
-  controls.enableRotate = true;
+  // Drag with the primary mouse button = pan; single-finger touch = pan
+  controls.mouseButtons = {
+    LEFT: MOUSE.PAN,
+    MIDDLE: MOUSE.DOLLY,
+    RIGHT: MOUSE.PAN,
+  };
+  controls.touches = {
+    ONE: TOUCH.PAN,
+    TWO: TOUCH.DOLLY_PAN,
+  };
 
   return {
     controls,

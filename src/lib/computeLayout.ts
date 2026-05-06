@@ -1,46 +1,47 @@
 export interface LayoutOptions {
-  cols: number;       // photos per row
-  rows: number;       // rows per layer
-  spacing: number;    // unit distance between slots
-  jitter: number;     // random offset as a fraction of spacing
+  spread?: number;       // standard deviation of the Gaussian scatter (in scene units)
+  scaleMin?: number;     // minimum random scale per card
+  scaleMax?: number;     // maximum random scale per card
+  zJitter?: number;      // small z-axis jitter so overlapping cards have stable depth ordering
 }
 
 export interface PhotoSlot {
   index: number;
   position: { x: number; y: number; z: number };
+  scale: number;
+}
+
+// Box-Muller transform → standard normal (mean 0, stddev 1)
+function gaussian(rng: () => number): number {
+  // Avoid u=0 producing log(0) = -Infinity by sampling u in (0, 1].
+  const u = 1 - rng();
+  const v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
 export function computeLayout(
   count: number,
-  options: LayoutOptions,
+  options: LayoutOptions = {},
   rng: () => number = Math.random,
 ): PhotoSlot[] {
-  const { cols, rows, spacing, jitter } = options;
   if (count <= 0) return [];
 
-  const perLayer = cols * rows;
-  const layersTotal = Math.ceil(count / perLayer);
+  const spread = options.spread ?? Math.max(2.5, Math.cbrt(count) * 1.4);
+  const scaleMin = options.scaleMin ?? 0.7;
+  const scaleMax = options.scaleMax ?? 1.4;
+  const zJitter = options.zJitter ?? 0.05;
+
   const slots: PhotoSlot[] = [];
-
   for (let i = 0; i < count; i++) {
-    const layer = Math.floor(i / perLayer);
-    const inLayer = i % perLayer;
-    const row = Math.floor(inLayer / cols);
-    const col = inLayer % cols;
-
-    const baseX = (col - (cols - 1) / 2) * spacing;
-    const baseY = (row - (rows - 1) / 2) * spacing;
-    const baseZ = (layer - (layersTotal - 1) / 2) * spacing;
-
-    const jx = (rng() - 0.5) * 2 * jitter * spacing;
-    const jy = (rng() - 0.5) * 2 * jitter * spacing;
-    const jz = (rng() - 0.5) * 2 * jitter * spacing;
-
+    const x = gaussian(rng) * spread;
+    const y = gaussian(rng) * spread;
+    const z = (rng() - 0.5) * 2 * zJitter;
+    const scale = scaleMin + rng() * (scaleMax - scaleMin);
     slots.push({
       index: i,
-      position: { x: baseX + jx, y: baseY + jy, z: baseZ + jz },
+      position: { x, y, z },
+      scale,
     });
   }
-
   return slots;
 }
