@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type View = 'landing' | 'globe';
+export type View = 'landing' | 'processing' | 'space';
 
 interface ViewState {
   view: View;
