@@ -12,6 +12,8 @@ import { createPhotoCard, type PhotoCard } from '../three/createPhotoCard';
 import { setupControls } from '../three/orbitControlsFactory';
 import { computeLayout } from '../lib/computeLayout';
 import { usePhotoStore } from '../store/photoStore';
+import { handTracker } from '../lib/handTracking';
+import { GestureRecognizer } from '../lib/gestureRecognizer';
 import { useViewStore } from '../store/viewStore';
 
 const ZOOM_STEP = 0.86;          // each scroll tick multiplies distance by this (or its inverse)
@@ -117,6 +119,45 @@ export function SpaceScene() {
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
 
+    // ----- Hand-gesture input (parallel to mouse) -----
+    // performPan: shift camera + orbit target by the same world-space offset so
+    // view direction is preserved (true parallel pan, no rotation).
+    const performPan = (dxPx: number, dyPx: number) => {
+      const distance = camera.position.distanceTo(controlsBundle.controls.target);
+      const fovRad = (camera.fov * Math.PI) / 180;
+      const worldPerPixel = (2 * distance * Math.tan(fovRad / 2)) / canvas.clientHeight;
+      const right = new Vector3().setFromMatrixColumn(camera.matrix, 0);
+      const up = new Vector3().setFromMatrixColumn(camera.matrix, 1);
+      const offset = right
+        .multiplyScalar(dxPx * worldPerPixel)
+        .add(up.multiplyScalar(-dyPx * worldPerPixel));
+      camera.position.add(offset);
+      controlsBundle.controls.target.add(offset);
+      targetTarget.add(offset);
+    };
+
+    const recognizer = new GestureRecognizer();
+    const PAN_SCALE_X = canvas.clientWidth * 1.5;
+    const PAN_SCALE_Y = canvas.clientHeight * 1.5;
+    const ZOOM_GAIN = 4;
+
+    const unsubFrames = handTracker.onFrame((frame) => {
+      const events = recognizer.process(frame);
+      for (const ev of events) {
+        if (ev.type === 'pinchMove') {
+          // Pinch-grab: photos follow the pinch. Pinch right → world appears to
+          // move right → camera/target shift LEFT (negative dx).
+          // Image y goes downward; negate so "pinch down" makes camera move down,
+          // which makes photos appear to follow the pinch downward.
+          performPan(-ev.delta.x * PAN_SCALE_X, -ev.delta.y * PAN_SCALE_Y);
+        } else if (ev.type === 'twoPinchMove') {
+          // distanceDelta > 0 (hands apart) → zoom IN. Synthesize negative wheel deltaY.
+          const fakeDeltaY = -ev.distanceDelta * 1000;
+          performZoom(fakeDeltaY, 100 / ZOOM_GAIN);
+        }
+      }
+    });
+
     const targets: Object3D[] = cards.map((c) => c.mesh);
 
     const raycaster = new Raycaster();
@@ -196,6 +237,7 @@ export function SpaceScene() {
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('wheel', onWheel);
+      unsubFrames();
       unsubReset();
       controlsBundle.dispose();
       cards.forEach((c) => c.dispose());
