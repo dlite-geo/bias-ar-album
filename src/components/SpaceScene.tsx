@@ -137,9 +137,9 @@ export function SpaceScene() {
     };
 
     const recognizer = new GestureRecognizer();
-    const PAN_SCALE_X = canvas.clientWidth * 1.5;
-    const PAN_SCALE_Y = canvas.clientHeight * 1.5;
-    const ZOOM_GAIN = 4;
+    const PAN_SCALE_X = canvas.clientWidth * 0.5;
+    const PAN_SCALE_Y = canvas.clientHeight * 0.5;
+    const ZOOM_GAIN = 1.0;
 
     const unsubFrames = handTracker.onFrame((frame) => {
       const events = recognizer.process(frame);
@@ -151,9 +151,11 @@ export function SpaceScene() {
           // which makes photos appear to follow the pinch downward.
           performPan(-ev.delta.x * PAN_SCALE_X, -ev.delta.y * PAN_SCALE_Y);
         } else if (ev.type === 'twoPinchMove') {
-          // distanceDelta > 0 (hands apart) → zoom IN. Synthesize negative wheel deltaY.
-          const fakeDeltaY = -ev.distanceDelta * 1000;
-          performZoom(fakeDeltaY, 100 / ZOOM_GAIN);
+          // Direct distance mutation — NO zoom-to-cursor pull (the mouse cursor
+          // position is stale/irrelevant during hand zoom). distanceDelta > 0
+          // (hands apart) → factor < 1 → distance shrinks → zoom IN.
+          const factor = Math.max(0.7, Math.min(1.4, 1 - ev.distanceDelta * ZOOM_GAIN));
+          targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, targetDistance * factor));
         }
       }
     });
