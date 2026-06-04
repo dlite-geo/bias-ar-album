@@ -7,7 +7,7 @@ import { SpaceHud } from './components/SpaceHud';
 import { PhotoLightbox } from './components/PhotoLightbox';
 import { SpacesList } from './components/SpacesList';
 import { LoadingSpaceScreen } from './components/LoadingSpaceScreen';
-import { HandControl } from './components/HandControl';
+import { CameraLayer } from './components/CameraLayer';
 import { useViewStore } from './store/viewStore';
 
 export default function App() {
@@ -23,9 +23,9 @@ export default function App() {
         {view === 'loading-space' && <LoadingSpaceScreen />}
         {view === 'space' && (
           <>
+            <CameraLayer />
             <SpaceScene />
             <SpaceHud />
-            <HandControl />
             <PhotoLightbox />
           </>
         )}

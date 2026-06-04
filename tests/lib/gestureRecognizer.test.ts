@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   isPinching,
   pinchPosition,
+  pinchSpread,
+  palmWidth,
+  handCenter,
+  indexTipPosition,
   type HandLandmark,
 } from '../../src/lib/gestureRecognizer';
 
@@ -44,15 +48,56 @@ describe('pinchPosition', () => {
   });
 });
 
+describe('pinchSpread', () => {
+  it('measures the thumb-tip to index-tip distance', () => {
+    const lm = landmarksWithThumbIndex({ x: 0.4, y: 0.5 }, { x: 0.7, y: 0.5 });
+    expect(pinchSpread(lm)).toBeCloseTo(0.3, 5);
+  });
+});
+
+describe('indexTipPosition', () => {
+  it('returns the index fingertip coordinates', () => {
+    const lm = landmarksWithThumbIndex({ x: 0.4, y: 0.5 }, { x: 0.7, y: 0.2 });
+    const p = indexTipPosition(lm);
+    expect(p.x).toBeCloseTo(0.7);
+    expect(p.y).toBeCloseTo(0.2);
+  });
+});
+
+describe('palmWidth / handCenter', () => {
+  it('palmWidth is the index-knuckle to pinky-knuckle distance', () => {
+    const arr: HandLandmark[] = Array.from({ length: 21 }, () => ({ x: 0, y: 0, z: 0 }));
+    arr[5] = { x: 0.4, y: 0.5, z: 0 }; // index MCP
+    arr[17] = { x: 0.6, y: 0.5, z: 0 }; // pinky MCP
+    expect(palmWidth(arr)).toBeCloseTo(0.2, 5);
+  });
+
+  it('handCenter reads the middle-finger knuckle', () => {
+    const arr: HandLandmark[] = Array.from({ length: 21 }, () => ({ x: 0, y: 0, z: 0 }));
+    arr[9] = { x: 0.33, y: 0.44, z: 0 };
+    const c = handCenter(arr);
+    expect(c.x).toBeCloseTo(0.33);
+    expect(c.y).toBeCloseTo(0.44);
+  });
+});
+
 import { GestureRecognizer, type HandData, type HandFrame } from '../../src/lib/gestureRecognizer';
 
+// A pinched hand: thumb tip (4) and index tip (8) nearly coincident, plus palm/center
+// knuckles placed so palmWidth and handCenter are well-defined.
 function pinchedHand(handedness: 'Left' | 'Right', x = 0.5, y = 0.5): HandData {
   const landmarks = landmarksWithThumbIndex({ x, y }, { x: x + 0.01, y: y + 0.01 });
+  landmarks[5] = { x: x - 0.05, y, z: 0 };
+  landmarks[9] = { x, y, z: 0 };
+  landmarks[17] = { x: x + 0.05, y, z: 0 };
   return { landmarks, handedness };
 }
 
 function openHand(handedness: 'Left' | 'Right', x = 0.5, y = 0.5): HandData {
   const landmarks = landmarksWithThumbIndex({ x, y }, { x: x + 0.2, y });
+  landmarks[5] = { x: x - 0.05, y, z: 0 };
+  landmarks[9] = { x, y, z: 0 };
+  landmarks[17] = { x: x + 0.05, y, z: 0 };
   return { landmarks, handedness };
 }
 
@@ -66,21 +111,26 @@ describe('GestureRecognizer — single-hand pinch state machine', () => {
     expect(r.process(frame([]))).toEqual([]);
   });
 
-  it('emits no events for an open hand', () => {
+  it('emits no events for a slowly-held open hand', () => {
     const r = new GestureRecognizer();
-    expect(r.process(frame([openHand('Right')]))).toEqual([]);
+    // First frame establishes the center; second frame stays put → no swipe.
+    r.process(frame([openHand('Right')]));
+    expect(r.process(frame([openHand('Right')], 16))).toEqual([]);
   });
 
-  it('emits pinchStart on transition from open to pinch', () => {
+  it('emits pinchStart with index-tip pointer on transition from open to pinch', () => {
     const r = new GestureRecognizer();
     r.process(frame([openHand('Right')]));
     const events = r.process(frame([pinchedHand('Right', 0.4, 0.6)], 16));
-    expect(events).toHaveLength(1);
-    expect(events[0].type).toBe('pinchStart');
-    if (events[0].type === 'pinchStart') {
-      expect(events[0].hand).toBe('Right');
-      expect(events[0].position.x).toBeCloseTo(0.405, 2);
-      expect(events[0].position.y).toBeCloseTo(0.605, 2);
+    const start = events.find((e) => e.type === 'pinchStart');
+    expect(start).toBeDefined();
+    if (start && start.type === 'pinchStart') {
+      expect(start.hand).toBe('Right');
+      // pointer is the index tip (x+0.01, y+0.01)
+      expect(start.pointer.x).toBeCloseTo(0.41, 2);
+      expect(start.pointer.y).toBeCloseTo(0.61, 2);
+      expect(start.spread).toBeGreaterThan(0);
+      expect(start.span).toBeGreaterThan(0);
     }
   });
 
@@ -120,53 +170,126 @@ describe('GestureRecognizer — single-hand pinch state machine', () => {
   });
 });
 
-describe('GestureRecognizer — two-hand pinch', () => {
-  it('emits twoPinchStart only when BOTH hands pinch', () => {
+describe('GestureRecognizer — two-hand zoom', () => {
+  it('does not emit twoHandMove on the first both-hands frame (establishes baseline)', () => {
     const r = new GestureRecognizer();
-    // Just left pinching — no two-pinch event.
-    let events = r.process(frame([pinchedHand('Left', 0.3, 0.5)]));
-    expect(events.some((e) => e.type === 'twoPinchStart')).toBe(false);
-
-    // Now both pinch.
-    events = r.process(frame([pinchedHand('Left', 0.3, 0.5), pinchedHand('Right', 0.7, 0.5)], 16));
-    const start = events.find((e) => e.type === 'twoPinchStart');
-    expect(start).toBeDefined();
-    if (start && start.type === 'twoPinchStart') {
-      expect(start.distance).toBeCloseTo(0.4, 1);
-      expect(start.center.x).toBeCloseTo(0.5, 1);
-    }
+    const events = r.process(frame([openHand('Left', 0.3, 0.5), openHand('Right', 0.7, 0.5)]));
+    expect(events.some((e) => e.type === 'twoHandMove')).toBe(false);
   });
 
-  it('emits twoPinchMove with positive distanceDelta when hands move apart', () => {
+  it('emits positive distanceDelta when open hands move apart', () => {
     const r = new GestureRecognizer();
-    r.process(frame([pinchedHand('Left', 0.4, 0.5), pinchedHand('Right', 0.6, 0.5)]));
-    const events = r.process(
-      frame([pinchedHand('Left', 0.3, 0.5), pinchedHand('Right', 0.7, 0.5)], 16),
-    );
-    const move = events.find((e) => e.type === 'twoPinchMove');
+    r.process(frame([openHand('Left', 0.4, 0.5), openHand('Right', 0.6, 0.5)]));
+    const events = r.process(frame([openHand('Left', 0.3, 0.5), openHand('Right', 0.7, 0.5)], 16));
+    const move = events.find((e) => e.type === 'twoHandMove');
     expect(move).toBeDefined();
-    if (move && move.type === 'twoPinchMove') {
+    if (move && move.type === 'twoHandMove') {
       expect(move.distanceDelta).toBeGreaterThan(0);
     }
   });
 
-  it('emits twoPinchMove with negative distanceDelta when hands move together', () => {
+  it('emits negative distanceDelta when open hands move together', () => {
     const r = new GestureRecognizer();
-    r.process(frame([pinchedHand('Left', 0.3, 0.5), pinchedHand('Right', 0.7, 0.5)]));
-    const events = r.process(
-      frame([pinchedHand('Left', 0.4, 0.5), pinchedHand('Right', 0.6, 0.5)], 16),
-    );
-    const move = events.find((e) => e.type === 'twoPinchMove');
+    r.process(frame([openHand('Left', 0.3, 0.5), openHand('Right', 0.7, 0.5)]));
+    const events = r.process(frame([openHand('Left', 0.4, 0.5), openHand('Right', 0.6, 0.5)], 16));
+    const move = events.find((e) => e.type === 'twoHandMove');
     expect(move).toBeDefined();
-    if (move && move.type === 'twoPinchMove') {
+    if (move && move.type === 'twoHandMove') {
       expect(move.distanceDelta).toBeLessThan(0);
     }
   });
 
-  it('emits twoPinchEnd when one hand stops pinching', () => {
+  it('does not zoom while a hand is pinching (that is a grab, not a zoom)', () => {
     const r = new GestureRecognizer();
-    r.process(frame([pinchedHand('Left', 0.3, 0.5), pinchedHand('Right', 0.7, 0.5)]));
-    const events = r.process(frame([pinchedHand('Left', 0.3, 0.5), openHand('Right', 0.7, 0.5)], 16));
-    expect(events.some((e) => e.type === 'twoPinchEnd')).toBe(true);
+    r.process(frame([pinchedHand('Left', 0.3, 0.5), openHand('Right', 0.7, 0.5)]));
+    const events = r.process(frame([pinchedHand('Left', 0.4, 0.5), openHand('Right', 0.6, 0.5)], 16));
+    expect(events.some((e) => e.type === 'twoHandMove')).toBe(false);
+  });
+});
+
+describe('GestureRecognizer — swipe', () => {
+  it('emits a swipe when a single open hand moves fast', () => {
+    const r = new GestureRecognizer();
+    r.process(frame([openHand('Right', 0.3, 0.5)]));
+    const events = r.process(frame([openHand('Right', 0.6, 0.5)], 16));
+    const swipe = events.find((e) => e.type === 'swipe');
+    expect(swipe).toBeDefined();
+    if (swipe && swipe.type === 'swipe') {
+      expect(swipe.velocity.x).toBeCloseTo(0.3, 2);
+      expect(swipe.velocity.y).toBeCloseTo(0, 2);
+    }
+  });
+
+  it('does not emit a swipe for small movements', () => {
+    const r = new GestureRecognizer();
+    r.process(frame([openHand('Right', 0.5, 0.5)]));
+    const events = r.process(frame([openHand('Right', 0.51, 0.5)], 16));
+    expect(events.some((e) => e.type === 'swipe')).toBe(false);
+  });
+
+  it('does not emit a swipe while pinching', () => {
+    const r = new GestureRecognizer();
+    r.process(frame([pinchedHand('Right', 0.3, 0.5)]));
+    const events = r.process(frame([pinchedHand('Right', 0.6, 0.5)], 16));
+    expect(events.some((e) => e.type === 'swipe')).toBe(false);
+  });
+});
+
+// A fist: all four fingertips curled toward the wrist (tips closer to the wrist than the PIPs).
+function fistHand(handedness: 'Left' | 'Right', x = 0.5, y = 0.5): HandData {
+  const arr: HandLandmark[] = Array.from({ length: 21 }, () => ({ x, y, z: 0 }));
+  arr[0] = { x, y: y + 0.2, z: 0 }; // wrist below the hand
+  // PIPs sit farther from the wrist; tips curl back closer to the wrist.
+  for (const [tip, pip] of [
+    [8, 6],
+    [12, 10],
+    [16, 14],
+    [20, 18],
+  ]) {
+    arr[pip] = { x, y: y - 0.1, z: 0 };
+    arr[tip] = { x, y: y + 0.05, z: 0 };
+  }
+  return { landmarks: arr, handedness };
+}
+
+describe('GestureRecognizer — fist (brake)', () => {
+  it('emits a fist event on the transition into a fist', () => {
+    const r = new GestureRecognizer();
+    r.process(frame([openHand('Right')]));
+    const events = r.process(frame([fistHand('Right')], 16));
+    expect(events.some((e) => e.type === 'fist' && e.hand === 'Right')).toBe(true);
+  });
+
+  it('does not re-emit fist while the fist is held', () => {
+    const r = new GestureRecognizer();
+    r.process(frame([fistHand('Right')]));
+    const events = r.process(frame([fistHand('Right')], 16));
+    expect(events.some((e) => e.type === 'fist')).toBe(false);
+  });
+});
+
+describe('GestureRecognizer — two-hand twist', () => {
+  it('emits twoHandTwist when both pinched hands rotate', () => {
+    const r = new GestureRecognizer();
+    // Baseline frame: left low, right high (line tilted).
+    r.process(frame([pinchedHand('Left', 0.4, 0.4), pinchedHand('Right', 0.6, 0.6)]));
+    // Rotate the pair.
+    const events = r.process(frame([pinchedHand('Left', 0.4, 0.6), pinchedHand('Right', 0.6, 0.4)], 16));
+    const twist = events.find((e) => e.type === 'twoHandTwist');
+    expect(twist).toBeDefined();
+    if (twist && twist.type === 'twoHandTwist') {
+      expect(Math.abs(twist.angleDelta)).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('GestureRecognizer — snapshot', () => {
+  it('exposes per-hand derived features for the current frame', () => {
+    const r = new GestureRecognizer();
+    r.process(frame([pinchedHand('Right', 0.5, 0.5)]));
+    expect(r.snapshot.Right).not.toBeNull();
+    expect(r.snapshot.Left).toBeNull();
+    expect(r.snapshot.Right!.pinching).toBe(true);
+    expect(r.snapshot.Right!.present).toBe(true);
   });
 });

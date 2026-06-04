@@ -11,7 +11,7 @@ interface HandState {
 }
 
 export const useHandStore = create<HandState>((set) => ({
-  enabled: false,
+  enabled: true,
   status: 'off',
   errorMessage: null,
   toggle: () => set((s) => ({ enabled: !s.enabled, errorMessage: null })),

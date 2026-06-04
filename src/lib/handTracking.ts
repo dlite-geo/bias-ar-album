@@ -23,8 +23,9 @@ export class HandTracker {
     if (this.running) return;
 
     // 1. Webcam
+    // Higher resolution — the feed is now the full-screen AR background, not a thumbnail.
     this.stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 480, facingMode: 'user' },
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
       audio: false,
     });
     this.video = document.createElement('video');
