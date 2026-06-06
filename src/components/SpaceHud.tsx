@@ -1,4 +1,5 @@
 import { FrostPanel } from './ui/FrostPanel';
+import { CommunityLinks } from './CommunityLinks';
 import { useViewStore } from '../store/viewStore';
 import { usePhotoStore } from '../store/photoStore';
 import { useHandStore } from '../store/handStore';
@@ -86,6 +87,7 @@ export function SpaceHud() {
           </span>
         </FrostPanel>
       </div>
+      <CommunityLinks style={{ position: 'fixed', top: 24, right: 24, zIndex: 10 }} />
     </>
   );
 }
