@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { ChangeEvent, DragEvent } from 'react';
+import type { ChangeEvent, CSSProperties, DragEvent } from 'react';
 import { FrostPanel } from './ui/FrostPanel';
 import { useViewStore } from '../store/viewStore';
 import { usePhotoStore } from '../store/photoStore';
@@ -131,6 +131,44 @@ export function LandingScreen() {
           </div>
         </label>
       </FrostPanel>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          marginTop: 8,
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+        }}
+      >
+        <a
+          href="https://discord.com/invite/SndB4Psg"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={LINK_STYLE}
+        >
+          💬 Join our Discord
+        </a>
+        <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+        <a
+          href="https://www.trybluey.com/products/bluey-lite"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={LINK_STYLE}
+        >
+          ✨ Get Bluey Lite
+        </a>
+      </div>
     </div>
   );
 }
+
+const LINK_STYLE: CSSProperties = {
+  color: 'var(--text-secondary)',
+  fontSize: 'var(--font-size-md)',
+  textDecoration: 'none',
+  letterSpacing: '0.02em',
+  borderBottom: '1px solid var(--border-medium)',
+  paddingBottom: 1,
+};
