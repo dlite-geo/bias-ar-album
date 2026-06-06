@@ -137,7 +137,7 @@ export function LandingScreen() {
           display: 'flex',
           alignItems: 'center',
           gap: 16,
-          marginTop: 8,
+          marginTop: 24,
           flexWrap: 'wrap',
           justifyContent: 'center',
         }}
@@ -146,16 +146,15 @@ export function LandingScreen() {
           href="https://discord.com/invite/SndB4Psg"
           target="_blank"
           rel="noopener noreferrer"
-          style={LINK_STYLE}
+          style={DISCORD_STYLE}
         >
           💬 Join our Discord
         </a>
-        <span style={{ color: 'var(--text-tertiary)' }}>·</span>
         <a
           href="https://www.trybluey.com/products/bluey-lite"
           target="_blank"
           rel="noopener noreferrer"
-          style={LINK_STYLE}
+          style={BLUEY_STYLE}
         >
           ✨ Get Bluey Lite
         </a>
@@ -164,11 +163,27 @@ export function LandingScreen() {
   );
 }
 
-const LINK_STYLE: CSSProperties = {
-  color: 'var(--text-secondary)',
-  fontSize: 'var(--font-size-md)',
+const BUTTON_BASE: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '14px 28px',
+  borderRadius: 999,
+  fontSize: 'var(--font-size-lg)',
+  fontWeight: 700,
+  letterSpacing: '0.01em',
   textDecoration: 'none',
-  letterSpacing: '0.02em',
-  borderBottom: '1px solid var(--border-medium)',
-  paddingBottom: 1,
+  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.12)',
+};
+
+const DISCORD_STYLE: CSSProperties = {
+  ...BUTTON_BASE,
+  background: '#5865F2',
+  color: '#ffffff',
+};
+
+const BLUEY_STYLE: CSSProperties = {
+  ...BUTTON_BASE,
+  background: 'var(--color-accent)',
+  color: 'var(--text-primary)',
 };
