@@ -10,32 +10,18 @@ Drop a folder of photos and watch them float around you in a 3D AR space — the
 - Three.js (raw — custom render pipeline with SMAA + OutlinePass over a transparent canvas)
 - Zustand for state
 - `@mediapipe/tasks-vision` (HandLandmarker) for webcam hand tracking — browser-side WASM + WebGL
-- Vercel for static hosting
+- Static site, ready for GitHub-based local development
 
 No backend. No database. No accounts.
 
-## Local development
+## Run from GitHub
 
-1. Clone the repo.
-2. Install: `npm install`
-3. `npm run dev` → http://localhost:5173
+1. Clone this repository from GitHub.
+2. Install dependencies: `npm install`
+3. Start the dev server: `npm run dev`
+4. Open http://localhost:5173
 
-That's it — there's nothing to configure.
-
-## Deploy to Vercel
-
-Live deployment:
-
-- Production alias: [https://bias-ar-album.vercel.app](https://bias-ar-album.vercel.app)
-- Direct deployment URL: [https://bias-ar-album-fxdjl4og6-t3staments-projects.vercel.app](https://bias-ar-album-fxdjl4og6-t3staments-projects.vercel.app)
-
-Manual deploy steps:
-
-1. Push to GitHub.
-2. Import the repo at [vercel.com/new](https://vercel.com/new).
-3. Deploy. Vercel auto-detects Vite and serves the static build. No environment variables are needed.
-
-If you want Git-based auto deploys, connect the GitHub repo in the Vercel project settings after import.
+That's it — there's nothing else to configure.
 
 ## How it works
 
