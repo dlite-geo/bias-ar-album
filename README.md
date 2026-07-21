@@ -24,11 +24,18 @@ That's it — there's nothing to configure.
 
 ## Deploy to Vercel
 
-1. Push to GitHub.
-2. Import the repo at vercel.com/new.
-3. Deploy. Vercel auto-detects Vite and serves the static build. No environment variables needed.
+Live deployment:
 
-Pushing to `main` auto-rebuilds the production deploy.
+- Production alias: [https://bias-ar-album.vercel.app](https://bias-ar-album.vercel.app)
+- Direct deployment URL: [https://bias-ar-album-fxdjl4og6-t3staments-projects.vercel.app](https://bias-ar-album-fxdjl4og6-t3staments-projects.vercel.app)
+
+Manual deploy steps:
+
+1. Push to GitHub.
+2. Import the repo at [vercel.com/new](https://vercel.com/new).
+3. Deploy. Vercel auto-detects Vite and serves the static build. No environment variables are needed.
+
+If you want Git-based auto deploys, connect the GitHub repo in the Vercel project settings after import.
 
 ## How it works
 
