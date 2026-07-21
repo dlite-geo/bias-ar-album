@@ -3,6 +3,17 @@
 > 이 문서는 AI 어시스턴트(또는 새 개발자)가 이 프로젝트를 이어받아 개발할 때 필요한 전체 맥락입니다.
 > 원본은 [aivsomkar/PinViz](https://github.com/aivsomkar/PinViz) 를 포크해 대폭 개조한 것입니다.
 
+## 라이선스 / 사용 허락
+
+- **2026-07-21, 원저작자(aivsomkar)로부터 Instagram DM으로 포크·개조 사용 허락을 받음.**
+  원문: "Hey go ahead use it. I'll add the license. Don't worry you will not face any issues.
+  Glad you liked it. Happy building!" (스크린샷 보관 권장)
+- 보낼 감사 답장 기록: "Thank you so much! That's really kind of you — and the license addition means a lot. 🙏
+
+  I'll keep clear attribution to PinViz in the project, and I'd love to show you the result once it's polished. Happy building to you too! ✨"
+- 원저작자가 원본 저장소에 라이선스를 추가하겠다고 밝힘 — 추가되면 여기에 라이선스 종류를 기록할 것.
+- 조건: 원본(aivsomkar/PinViz) 출처 표기를 항상 유지한다.
+
 ## 프로젝트 개요
 
 브라우저에서 완전히 로컬로 동작하는 3D AR 포토 갤러리.

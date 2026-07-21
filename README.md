@@ -1,6 +1,6 @@
 # PinViz
 
-This project is a heavily modified fork built on the original source from [aivsomkar/PinViz](https://github.com/aivsomkar/PinViz).
+This project is a heavily modified fork built on the original source from [aivsomkar/PinViz](https://github.com/aivsomkar/PinViz), used and modified with the original author's permission (granted July 2026).
 
 Drop a folder of photos and watch them float around you in a 3D AR space — the live webcam is the backdrop, and you arrange the photos with hand gestures (or mouse). Runs **entirely in your browser**: no sign-in, no uploads, no server. Your photos never leave your device.
 
