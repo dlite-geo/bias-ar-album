@@ -172,7 +172,7 @@ These gesture/feel constants were reasoned, not yet tuned on real hardware over 
 
 1. **Tune gesture feel on real hardware.** The constants above are reasoned, not hand-tested over time. Likely first targets: swipe threshold (twitchy vs sluggish), spin friction, two-hand zoom gain, held-photo depth mapping. If one-handed move+depth+roll+scale-at-once feels chaotic, gate depth/roll behind a deadzone.
 2. **Pinch-tap to open the lightbox.** Gestures handle navigation/arrangement; opening the full-res lightbox still needs a mouse click. Add a quick-pinch ("tap": short pinch with minimal travel) → raycast at the index-tip → `setSelected`.
-3. **Shuffle / regenerate layout.** Reset only re-frames the camera; the scatter is fixed at mount. Add `triggerReshuffle()` on viewStore + watch in SpaceScene.
+3. **Shuffle / regenerate layout.** ✅ Shipped as the `🎲 섞기` HUD button; it rerolls the scatter while keeping the current camera framing.
 4. **Gesture onboarding.** The cheat-sheet in `CameraLayer` lists everything, but a first-run animated walkthrough would land better.
 5. **Sort/arrange modes** (SOOT's Name / Color / Date) — each a distinct strategy in `computeLayout.ts`. "Color" = cluster by dominant hue computed at decode.
 6. **Performance at ~500+ photos** — `InstancedMesh` for cards, spatial partitioning for the raycaster, texture atlas.

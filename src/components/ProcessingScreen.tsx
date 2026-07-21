@@ -14,7 +14,7 @@ export function ProcessingScreen() {
           letterSpacing: '0.02em',
         }}
       >
-        Building your space…
+        공간을 만드는 중…
       </div>
       <div
         style={{
@@ -41,7 +41,7 @@ export function ProcessingScreen() {
           fontVariantNumeric: 'tabular-nums',
         }}
       >
-        {loaded} / {total} photos
+        {loaded} / {total} 장
       </div>
     </div>
   );

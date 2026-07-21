@@ -43,6 +43,10 @@ export class HandTracker {
       },
       runningMode: 'VIDEO',
       numHands: 2,
+      // Higher confidence floors → steadier landmarks and fewer phantom pinches.
+      minHandDetectionConfidence: 0.6,
+      minHandPresenceConfidence: 0.6,
+      minTrackingConfidence: 0.6,
     });
 
     // 3. Start frame loop
@@ -90,6 +94,9 @@ export class HandTracker {
 
   private tick = (): void => {
     if (!this.running || !this.landmarker || !this.video) return;
+    // Browsers pause media elements that get detached from the document; if that
+    // happens (e.g. during a background-mode switch) resume so tracking never stalls.
+    if (this.video.paused) void this.video.play().catch(() => {});
     if (this.video.readyState >= 2) {
       const result = this.landmarker.detectForVideo(this.video, performance.now());
 
@@ -100,6 +107,29 @@ export class HandTracker {
         ),
         handedness: (result.handedness[i]?.[0]?.categoryName ?? 'Right') as 'Left' | 'Right',
       }));
+
+      // MediaPipe occasionally detects ONE physical hand twice — two overlapping
+      // detections read as "two hands" and fired two-hand gestures from a single hand.
+      // If the two hand centers nearly coincide, keep only the first.
+      if (hands.length === 2) {
+        const a = hands[0].landmarks[9];
+        const b = hands[1].landmarks[9];
+        if (Math.hypot(a.x - b.x, a.y - b.y) < 0.12) hands.pop();
+      }
+
+      // MediaPipe sometimes labels both hands identically on mirrored feeds, which made
+      // the second hand invisible to two-hand gestures (resize/zoom/twist). Disambiguate
+      // by position: in the mirrored view your right hand appears on the right.
+      if (hands.length === 2 && hands[0].handedness === hands[1].handedness) {
+        const [a, b] = hands;
+        if (a.landmarks[9].x < b.landmarks[9].x) {
+          a.handedness = 'Left';
+          b.handedness = 'Right';
+        } else {
+          a.handedness = 'Right';
+          b.handedness = 'Left';
+        }
+      }
 
       const frame: HandFrame = { hands, timestamp: performance.now() };
       this.listeners.forEach((l) => l(frame));

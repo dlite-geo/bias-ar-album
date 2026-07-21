@@ -71,6 +71,43 @@ export function palmWidth(landmarks: HandLandmark[]): number {
   return dist2d(landmarks[INDEX_MCP], landmarks[PINKY_MCP]);
 }
 
+function palmNormal(landmarks: HandLandmark[]): { x: number; y: number; z: number } {
+  const wrist = landmarks[WRIST];
+  const index = landmarks[INDEX_MCP];
+  const pinky = landmarks[PINKY_MCP];
+  const ax = index.x - wrist.x;
+  const ay = index.y - wrist.y;
+  const az = index.z - wrist.z;
+  const bx = pinky.x - wrist.x;
+  const by = pinky.y - wrist.y;
+  const bz = pinky.z - wrist.z;
+  return {
+    x: ay * bz - az * by,
+    y: az * bx - ax * bz,
+    z: ax * by - ay * bx,
+  };
+}
+
+/**
+ * Returns true when the palm plane is facing the camera enough to count as a real
+ * palm gesture. Side-on hands and half-hidden hands should fail this check.
+ */
+export function isPalmFacingCamera(landmarks: HandLandmark[]): boolean {
+  const normal = palmNormal(landmarks);
+  const magnitude = Math.hypot(normal.x, normal.y, normal.z);
+  if (magnitude < 1e-6) return false;
+  return Math.abs(normal.z) / magnitude >= 0.35;
+}
+
+function centerDistance(left: HandLandmark[], right: HandLandmark[]): number {
+  const a = left[MIDDLE_MCP];
+  const b = right[MIDDLE_MCP];
+  // Normalize by hand size so two-hand zoom still behaves at different depths.
+  const depth = Math.abs(a.z - b.z) * 0.9;
+  const span = Math.max((palmWidth(left) + palmWidth(right)) / 2, 0.02);
+  return Math.hypot(a.x - b.x, a.y - b.y, depth) / span;
+}
+
 /** Stable hand center (middle-finger knuckle) — used for swipe + two-hand distance. */
 export function handCenter(landmarks: HandLandmark[]): { x: number; y: number } {
   const c = landmarks[MIDDLE_MCP];
@@ -104,10 +141,26 @@ export function isFist(landmarks: HandLandmark[]): boolean {
   return extendedFingerCount(landmarks) === 0;
 }
 
+/** All five fingertips gathered to a point (🤌) — the space-rotation knob gesture.
+ *  The four fingers must bunch tightly; the thumb just has to be nearby (it sits under
+ *  the fingers in a real 🤌 and projects a little off-center on camera). */
+export function isGrabAll(landmarks: HandLandmark[]): boolean {
+  const scale = Math.max(palmWidth(landmarks), 0.02);
+  const tips = [8, 12, 16, 20].map((i) => landmarks[i]);
+  const cx = tips.reduce((a, t) => a + t.x, 0) / tips.length;
+  const cy = tips.reduce((a, t) => a + t.y, 0) / tips.length;
+  const fingersGathered = tips.every((t) => Math.hypot(t.x - cx, t.y - cy) < scale * 0.5);
+  const thumb = landmarks[4];
+  return fingersGathered && Math.hypot(thumb.x - cx, thumb.y - cy) < scale * 0.8;
+}
+
 export interface HandSnapshot {
   present: boolean;
   pinching: boolean;
   fist: boolean;
+  fingers: number; // extended finger count (0 = fist, 4 = open palm)
+  grabAll: boolean; // 🤌 all fingertips gathered — space-rotation knob
+  palmFacing: boolean;
   pointer: { x: number; y: number };
   center: { x: number; y: number };
   spread: number;
@@ -154,17 +207,38 @@ export type GestureEvent =
 interface PinchState {
   active: boolean;
   pointer: { x: number; y: number } | null;
+  missingFrames: number;
 }
 
-const PINCH_THRESHOLD = 0.06;
+// Pinch thresholds are RATIOS of palm width, not absolute screen distances — a hand
+// close to the camera looks huge, and an absolute threshold made every hold "release"
+// the moment you pulled a photo near. Ratios work at any distance.
+export const PINCH_RATIO = 0.55;
+// Hysteresis: once pinching, the fingers must separate well past the entry threshold to
+// release. Without this, holds drop out mid-drag whenever the pinch estimate jitters.
+export const PINCH_RELEASE_RATIO = 0.92;
+
+/** Pinch test scaled by hand size — works whether the hand is near or far. */
+export function isPinchingScaled(landmarks: HandLandmark[], ratio: number): boolean {
+  const scale = Math.max(palmWidth(landmarks), 0.02);
+  return isPinching(landmarks, ratio * scale);
+}
+// Tracking briefly loses a moving hand all the time — keep a pinch alive for this many
+// consecutive missing frames before treating it as released.
+const PINCH_MISSING_GRACE = 8;
 // Minimum per-frame hand travel (normalized) to count as a swipe rather than drift.
-const SWIPE_THRESHOLD = 0.035;
+// A deliberate flick reaches ~0.06/frame; ordinary reaching stays under ~0.03.
+const SWIPE_THRESHOLD = 0.07;
 
 function snapshotHand(hand: HandData): HandSnapshot {
   return {
     present: true,
-    pinching: isPinching(hand.landmarks, PINCH_THRESHOLD),
+    // 🤌 also brings thumb+index together — it must NOT read as a pinch-grab.
+    pinching: isPinchingScaled(hand.landmarks, PINCH_RATIO) && !isGrabAll(hand.landmarks),
     fist: isFist(hand.landmarks),
+    fingers: extendedFingerCount(hand.landmarks),
+    grabAll: isGrabAll(hand.landmarks),
+    palmFacing: isPalmFacingCamera(hand.landmarks),
     pointer: indexTipPosition(hand.landmarks),
     center: handCenter(hand.landmarks),
     spread: pinchSpread(hand.landmarks),
@@ -175,8 +249,8 @@ function snapshotHand(hand: HandData): HandSnapshot {
 }
 
 export class GestureRecognizer {
-  private leftPinch: PinchState = { active: false, pointer: null };
-  private rightPinch: PinchState = { active: false, pointer: null };
+  private leftPinch: PinchState = { active: false, pointer: null, missingFrames: 0 };
+  private rightPinch: PinchState = { active: false, pointer: null, missingFrames: 0 };
   private twoHandZoomActive = false;
   private twoHandLastDistance = 0;
   private twoHandTwistActive = false;
@@ -189,6 +263,11 @@ export class GestureRecognizer {
 
   /** Latest per-hand derived features — read this for continuous, mode-dependent control. */
   snapshot: FrameSnapshot = { Left: null, Right: null };
+
+  /** Debounced pinch state (hysteresis + dropout grace) — steadier than snapshot.pinching. */
+  isPinchActive(hand: 'Left' | 'Right'): boolean {
+    return (hand === 'Left' ? this.leftPinch : this.rightPinch).active;
+  }
 
   process(frame: HandFrame): GestureEvent[] {
     const events: GestureEvent[] = [];
@@ -207,18 +286,27 @@ export class GestureRecognizer {
     this.processFist('Right', right, events);
 
     const bothPresent = !!left && !!right;
-    const neitherPinching = !this.leftPinch.active && !this.rightPinch.active;
     const bothPinching = this.leftPinch.active && this.rightPinch.active;
+    const bothOpenPalms =
+      bothPresent &&
+      extendedFingerCount(left!.landmarks) === 4 &&
+      extendedFingerCount(right!.landmarks) === 4 &&
+      isPalmFacingCamera(left!.landmarks) &&
+      isPalmFacingCamera(right!.landmarks);
 
-    if (bothPresent && neitherPinching) {
-      this.endTwist();
+    if (bothPresent && bothOpenPalms) {
       this.processTwoHandZoom(left!, right!, events);
-    } else if (bothPresent && bothPinching) {
-      this.endZoom();
-      this.processTwoHandTwist(left!, right!, events);
     } else {
       this.endZoom();
+    }
+
+    if (bothPresent && bothPinching) {
+      this.processTwoHandTwist(left!, right!, events);
+    } else {
       this.endTwist();
+    }
+
+    if (!bothPresent || (!bothOpenPalms && !bothPinching)) {
       this.processSwipe('Left', left, this.leftPinch, events);
       this.processSwipe('Right', right, this.rightPinch, events);
     }
@@ -235,7 +323,20 @@ export class GestureRecognizer {
     state: PinchState,
     events: GestureEvent[],
   ): void {
-    const pinching = hand ? isPinching(hand.landmarks, PINCH_THRESHOLD) : false;
+    // Grace period: a hand that vanishes mid-pinch usually reappears a few frames later.
+    if (!hand && state.active && state.missingFrames < PINCH_MISSING_GRACE) {
+      state.missingFrames++;
+      return;
+    }
+    if (hand) state.missingFrames = 0;
+
+    // Hysteresis: enter tight, release loose — jitter can't drop an active hold.
+    // 🤌 (all fingertips gathered) is the space-rotation knob, never a pinch —
+    // but an ACTIVE hold is not broken by it (mid-drag finger poses vary).
+    const pinching = hand
+      ? isPinchingScaled(hand.landmarks, state.active ? PINCH_RELEASE_RATIO : PINCH_RATIO) &&
+        (state.active || !isGrabAll(hand.landmarks))
+      : false;
     const pointer = hand && pinching ? indexTipPosition(hand.landmarks) : null;
 
     if (pinching && !state.active) {
@@ -268,6 +369,7 @@ export class GestureRecognizer {
       events.push({ type: 'pinchEnd', hand: handedness });
       state.active = false;
       state.pointer = null;
+      state.missingFrames = 0;
     }
   }
 
@@ -284,7 +386,7 @@ export class GestureRecognizer {
   }
 
   private processTwoHandZoom(left: HandData, right: HandData, events: GestureEvent[]): void {
-    const distance = dist2d(left.landmarks[MIDDLE_MCP], right.landmarks[MIDDLE_MCP]);
+    const distance = centerDistance(left.landmarks, right.landmarks);
     if (!this.twoHandZoomActive) {
       this.twoHandZoomActive = true;
       this.twoHandLastDistance = distance;

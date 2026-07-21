@@ -6,6 +6,7 @@ import {
   palmWidth,
   handCenter,
   indexTipPosition,
+  isPalmFacingCamera,
   type HandLandmark,
 } from '../../src/lib/gestureRecognizer';
 
@@ -81,6 +82,18 @@ describe('palmWidth / handCenter', () => {
   });
 });
 
+describe('isPalmFacingCamera', () => {
+  it('returns true for a front-facing palm', () => {
+    const hand = openHand('Right');
+    expect(isPalmFacingCamera(hand.landmarks)).toBe(true);
+  });
+
+  it('returns false for an edge-on hand', () => {
+    const hand = edgeOnOpenHand('Right');
+    expect(isPalmFacingCamera(hand.landmarks)).toBe(false);
+  });
+});
+
 import { GestureRecognizer, type HandData, type HandFrame } from '../../src/lib/gestureRecognizer';
 
 // A pinched hand: thumb tip (4) and index tip (8) nearly coincident, plus palm/center
@@ -98,7 +111,27 @@ function openHand(handedness: 'Left' | 'Right', x = 0.5, y = 0.5): HandData {
   landmarks[5] = { x: x - 0.05, y, z: 0 };
   landmarks[9] = { x, y, z: 0 };
   landmarks[17] = { x: x + 0.05, y, z: 0 };
+  // Middle/ring/pinky tips extended (far from the wrist at the origin) — an open palm.
+  landmarks[12] = { x, y: y - 0.15, z: 0 };
+  landmarks[16] = { x: x + 0.02, y: y - 0.14, z: 0 };
+  landmarks[20] = { x: x + 0.04, y: y - 0.12, z: 0 };
   return { landmarks, handedness };
+}
+
+function almostOpenHand(handedness: 'Left' | 'Right', x = 0.5, y = 0.5): HandData {
+  const hand = openHand(handedness, x, y);
+  // Keep one fingertip near the origin so the recognizer sees only three extended fingers.
+  hand.landmarks[20] = { x: 0, y: 0, z: 0 };
+  return hand;
+}
+
+function edgeOnOpenHand(handedness: 'Left' | 'Right', x = 0.5, y = 0.5): HandData {
+  const hand = openHand(handedness, x, y);
+  hand.landmarks[0] = { x, y: y + 0.18, z: 0 };
+  hand.landmarks[5] = { x, y: y + 0.08, z: 0.14 };
+  hand.landmarks[9] = { x, y, z: 0.18 };
+  hand.landmarks[17] = { x, y: y - 0.08, z: 0.22 };
+  return hand;
 }
 
 function frame(hands: HandData[], timestamp = 0): HandFrame {
@@ -154,11 +187,22 @@ describe('GestureRecognizer — single-hand pinch state machine', () => {
     expect(events.some((e) => e.type === 'pinchEnd' && e.hand === 'Right')).toBe(true);
   });
 
-  it('emits pinchEnd when a pinching hand disappears', () => {
+  it('keeps a pinch alive through a brief tracking dropout', () => {
     const r = new GestureRecognizer();
     r.process(frame([pinchedHand('Right')]));
-    const events = r.process(frame([], 16));
-    expect(events.some((e) => e.type === 'pinchEnd' && e.hand === 'Right')).toBe(true);
+    // A few missing frames — tracking flicker, not a release.
+    r.process(frame([], 16));
+    const events = r.process(frame([pinchedHand('Right', 0.55, 0.5)], 32));
+    expect(events.some((e) => e.type === 'pinchEnd')).toBe(false);
+    expect(events.some((e) => e.type === 'pinchMove' && e.hand === 'Right')).toBe(true);
+  });
+
+  it('emits pinchEnd when a pinching hand stays gone past the grace period', () => {
+    const r = new GestureRecognizer();
+    r.process(frame([pinchedHand('Right')]));
+    const all: ReturnType<typeof r.process> = [];
+    for (let i = 0; i < 12; i++) all.push(...r.process(frame([], 16 * (i + 1))));
+    expect(all.some((e) => e.type === 'pinchEnd' && e.hand === 'Right')).toBe(true);
   });
 
   it('tracks left and right hands independently', () => {
@@ -199,10 +243,24 @@ describe('GestureRecognizer — two-hand zoom', () => {
     }
   });
 
-  it('does not zoom while a hand is pinching (that is a grab, not a zoom)', () => {
+  it('does not zoom unless both hands are fully open', () => {
     const r = new GestureRecognizer();
-    r.process(frame([pinchedHand('Left', 0.3, 0.5), openHand('Right', 0.7, 0.5)]));
-    const events = r.process(frame([pinchedHand('Left', 0.4, 0.5), openHand('Right', 0.6, 0.5)], 16));
+    r.process(frame([almostOpenHand('Left', 0.3, 0.5), openHand('Right', 0.7, 0.5)]));
+    const events = r.process(frame([almostOpenHand('Left', 0.25, 0.5), openHand('Right', 0.75, 0.5)], 16));
+    expect(events.some((e) => e.type === 'twoHandMove')).toBe(false);
+  });
+
+  it('does not zoom when one open hand is edge-on', () => {
+    const r = new GestureRecognizer();
+    r.process(frame([openHand('Left', 0.3, 0.5), edgeOnOpenHand('Right', 0.7, 0.5)]));
+    const events = r.process(frame([openHand('Left', 0.4, 0.5), edgeOnOpenHand('Right', 0.6, 0.5)], 16));
+    expect(events.some((e) => e.type === 'twoHandMove')).toBe(false);
+  });
+
+  it('does not zoom when both hands are pinched', () => {
+    const r = new GestureRecognizer();
+    r.process(frame([pinchedHand('Left', 0.4, 0.5), pinchedHand('Right', 0.6, 0.5)]));
+    const events = r.process(frame([pinchedHand('Left', 0.3, 0.5), pinchedHand('Right', 0.7, 0.5)], 16));
     expect(events.some((e) => e.type === 'twoHandMove')).toBe(false);
   });
 });

@@ -17,6 +17,7 @@ export interface SceneBundle {
   renderer: WebGLRenderer;
   composer: EffectComposer;
   outline: OutlinePass;
+  outlineBack: OutlinePass;
   resize: (w: number, h: number) => void;
   dispose: () => void;
 }
@@ -40,6 +41,10 @@ export function createScene(canvas: HTMLCanvasElement): SceneBundle {
   renderPass.clearAlpha = 0; // keep the render target transparent so the webcam shows through
   composer.addPass(renderPass);
 
+  // Two outline passes: `outline` marks the FRONT card a pinch would grab, `outlineBack`
+  // marks overlapping cards hidden behind it — each with its own color.
+  const outlineBack = createOutlinePass(scene, camera, window.innerWidth, window.innerHeight);
+  composer.addPass(outlineBack);
   const outline = createOutlinePass(scene, camera, window.innerWidth, window.innerHeight);
   composer.addPass(outline);
 
@@ -60,5 +65,5 @@ export function createScene(canvas: HTMLCanvasElement): SceneBundle {
     renderer.dispose();
   }
 
-  return { scene, camera, renderer, composer, outline, resize, dispose };
+  return { scene, camera, renderer, composer, outline, outlineBack, resize, dispose };
 }
